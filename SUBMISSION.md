@@ -1,2 +1,2 @@
 Public repository URL: https://github.com/KravchenkoKseniia/apd-hw-1
-Commit SHA: f15ae3573f88cf89f95097463acf821a96e66b06
+Commit SHA: 1743b4e1bb2703055a148411dea0de74fe398c68
