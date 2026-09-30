@@ -25,7 +25,27 @@ public struct StudyItem: Codable, Equatable {
         category: StudyCategory,
         isCompleted: Bool = false
     ) throws {
-        fatalError("Implement StudyItem validation")
+        guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw StudyPlanError.blankTitle }
+        guard estimatedMinutes > 0 else { throw StudyPlanError.nonPositiveEstimatedMinutes }
+        self.id = id
+        self.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.estimatedMinutes = estimatedMinutes
+        self.category = category
+        self.isCompleted = isCompleted
+    }
+    
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let id = try container.decode(String.self, forKey: .id)
+        let title = try container.decode(String.self, forKey: .title)
+        let estimatedMinutes = try container.decode(Int.self, forKey: .estimatedMinutes)
+        let category = try container.decode(StudyCategory.self, forKey: .category)
+        let isCompleted = try container.decode(Bool.self, forKey: .isCompleted)
+        try self.init(id: id, title: title, estimatedMinutes: estimatedMinutes, category: category, isCompleted: isCompleted)
+    }
+    
+    mutating func markAsCompleted() {
+        self.isCompleted = true
     }
 }
 
@@ -33,23 +53,49 @@ public struct StudyPlan: Codable, Equatable {
     public private(set) var items: [StudyItem]
 
     public init(items: [StudyItem]) throws {
-        fatalError("Implement plan validation")
+        var seenIDs = Set<String>()
+        for item in items {
+            let isNew = seenIDs.insert(item.id).inserted
+            if !isNew {
+                throw StudyPlanError.duplicateID(item.id)
+            }
+        }
+        self.items = items.sorted { ($0.title, $0.id) < ($1.title, $1.id) }
+    }
+    
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let items = try container.decode([StudyItem].self, forKey: .items)
+        try self.init(items: items)
     }
 
     public static func decode(from data: Data) throws -> StudyPlan {
-        fatalError("Implement array decoding")
+        let decoder = JSONDecoder()
+        let items: [StudyItem] = try decoder.decode([StudyItem].self, from: data)
+        return try StudyPlan(items: items)
     }
 
     public func items(in category: StudyCategory) -> [StudyItem] {
-        fatalError("Implement category query")
+        var result: [StudyItem] = []
+        for item in items where item.category == category {
+            result.append(item)
+        }
+        return result
     }
 
     public func incompleteMinutes() -> Int {
-        fatalError("Implement incomplete-minute query")
+        var totalMinutes: Int = 0
+        for item in items where !item.isCompleted {
+            totalMinutes += item.estimatedMinutes
+        }
+        return totalMinutes
     }
 
     public mutating func markCompleted(id: String) throws {
-        fatalError("Implement completion mutation")
+        guard let index = items.firstIndex(where: {$0.id == id}) else {
+            throw StudyPlanError.unknownID(id)
+        }
+        items[index].markAsCompleted()
     }
 
     public mutating func importMerging(_ importedItems: [StudyItem]) throws {
